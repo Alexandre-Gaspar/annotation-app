@@ -1,48 +1,79 @@
 package com.alex3g.anotationsapp
 
-//import HomeScreen
-import HomeScreen
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.alex3g.anotationsapp.ui.screens.AddNoteScreen
-//import com.alex3g.anotationsapp.ui.screens.HomeScreen
+import com.alex3g.anotationsapp.database.AppDatabase
+import com.alex3g.anotationsapp.dao.NoteDao
+import com.alex3g.anotationsapp.ui.screens.details.DetailsScreen
+import com.alex3g.anotationsapp.ui.screens.details.DetailsNoteViewModel
+import com.alex3g.anotationsapp.ui.screens.home.HomeScreen
+import com.alex3g.anotationsapp.ui.screens.home.HomeViewModel
+import com.alex3g.anotationsapp.ui.screens.add.AddNoteScreen
+import com.alex3g.anotationsapp.ui.screens.add.AddNoteViewModel
 import com.alex3g.anotationsapp.ui.theme.AnotationsAppTheme
 
 class MainActivity : ComponentActivity() {
 
-    private val noteViewModel: NoteViewModel by viewModels()
+    lateinit var dao: NoteDao
+    lateinit var homeViewModel: HomeViewModel
+    lateinit var addNoteViewModel: AddNoteViewModel
+    lateinit var detailsNoteViewModel: DetailsNoteViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        dao = AppDatabase.getDatabase(this.applicationContext).noteDao()
+        homeViewModel = HomeViewModel(dao)
+        addNoteViewModel = AddNoteViewModel(dao)
+        detailsNoteViewModel = DetailsNoteViewModel(dao)
+
         enableEdgeToEdge()
         setContent {
             AnotationsAppTheme {
                 val navController = rememberNavController()
 
                 NavHost(navController = navController, startDestination = "home") {
+                    // Tela Home
                     composable("home") {
                         HomeScreen(
-                            viewModel = noteViewModel,
-                            onAddClick = { navController.navigate("add-note") }
+                            viewModel = homeViewModel,
+                            onAddClick = { navController.navigate("add-note") },
+                            onNoteClick = { noteId ->
+                                navController.navigate("details/$noteId")
+                            }
                         )
                     }
-//                    composable("add-note") {
-//                        AddNoteScreen(
-//                            onHomeClick = { navController.navigate("home") { popUpTo("home") { inclusive = true } } }
-//                        )
-//                    }
+
+                    // Tela Adicionar Nota
+                    composable("add-note") {
+                        AddNoteScreen(
+                            viewModel = addNoteViewModel,
+                            onNavigateBack = {
+                                navController.navigate("home") {
+                                    popUpTo("home") {
+                                        inclusive = true
+                                    }
+                                }
+                            }
+                        )
+                    }
+
+                    // Tela de Detalhes
+                    composable("details/{noteId}") { backStackEntry ->
+                        val noteId = backStackEntry.arguments?.getString("noteId")?.toInt() ?: 0
+                        detailsNoteViewModel.fetchNoteDetails(noteId) // Atualiza os dados da nota
+
+                        DetailsScreen(
+                            viewModel = detailsNoteViewModel,
+
+                            onNavigateBack = { navController.popBackStack() }
+                        )
+                    }
                 }
             }
         }
